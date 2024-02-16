@@ -150,10 +150,16 @@ class Dictionary:
        
         a = self.C[l+1,k+1]
         
-        self.C[l+1,:] /= a
+        self.C[l+2:,k] /= a
+        self.C[:l+1,k] /= a
+        self.C[l+1,:] /= -a
+        
+        
         for i in range(0,self.C.shape[0]):
-            if i != l+1:
-                self.C[i,:] -= self.C[i,k+1]*self.C[l+1,:]
+            for j in range(0,self.C.shape[1]):
+                if i != l+1:
+                    if j != k+1:
+                        self.C[i,j] -= self.C[i,j]+(self.C[i,k+1]*self.C[l+1,j]/a)
         
         
         # swap entering and leaving variables
