@@ -55,9 +55,9 @@ class Dictionary:
         if dtype in [int,Fraction]:
             dtype=object
             if c is not None:
-                c=np.array(c,np.object)
-            A=np.array(A,np.object)
-            b=np.array(b,np.object)
+                c=np.array(c,dtype=object)
+            A=np.array(A,dtype=object)
+            b=np.array(b,dtype=object)
         self.C = np.empty([m+1,n+1+(c is None)],dtype=dtype)
         self.C[0,0]=self.dtype(0)
         if c is None:
@@ -144,11 +144,20 @@ class Dictionary:
     def pivot(self,k,l):
         # Pivot Dictionary with N[k] entering and B[l] leaving
         # Performs integer pivoting if self.dtype==int
-
+        # l is pivot row
+        # k is pivot column
         # save pivot coefficient
+       
         a = self.C[l+1,k+1]
-        # TODO
-        pass
+        
+        self.C[l+1,:] /= a
+        for i in range(0,self.C.shape[0]):
+            if i != l+1:
+                self.C[i,:] -= self.C[i,k+1]*self.C[l+1,:]
+        
+        
+        # swap entering and leaving variables
+        self.N[k], self.B[l] = self.B[l], self.N[k]
 
 
 class LPResult(Enum):
@@ -341,5 +350,7 @@ def run_examples():
     print(D)
     print('x2 is entering and x4 leaving:')
     D.pivot(1,1)
-    print(D)
+    print(D) 
 
+
+run_examples()
