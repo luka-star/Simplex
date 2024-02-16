@@ -163,6 +163,7 @@ class Dictionary:
         self.C[l+1,:k+1] /= -a
         self.C[l+1,k+2:] /= -a
         self.C[l+1,k+1] = 1/a  
+       
         
         # swap entering and leaving variables
         self.N[k], self.B[l] = self.B[l], self.N[k]
