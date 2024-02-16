@@ -141,31 +141,30 @@ class Dictionary:
         else:
             return self.C[0,0]
 
-    def pivot(self,k,l):
+    def pivot(self, k, l):
         # Pivot Dictionary with N[k] entering and B[l] leaving
         # Performs integer pivoting if self.dtype==int
         # l is pivot row
         # k is pivot column
         # save pivot coefficient
-       
-        a = self.C[l+1,k+1]
-        
-        for i in range(0,self.C.shape[0]):
-            for j in range(0,self.C.shape[1]):
-                if i != l+1:
-                    if j != k+1:
-                        b = self.C[i,k+1]
-                        c = self.C[l+1,j]
-                        self.C[i,j] = -self.C[i,j]+(c*b/a)
-        
-        self.C[l+2:,k+1] /= a
-        self.C[:l+1,k+1] /= a
-        self.C[l+1,:k+1] /= -a
-        self.C[l+1,k+2:] /= -a
-        self.C[l+1,k+1] = 1/a  
-       
-        
-        # swap entering and leaving variables
+        a = self.C[l + 1, k + 1]
+
+        # Update all elements of the matrix except the pivot row and pivot column
+        for i in range(self.C.shape[0]):
+            for j in range(self.C.shape[1]):
+                if i != l + 1 and j != k + 1:
+                    b = self.C[i, k + 1]
+                    c = self.C[l + 1, j]
+                    self.C[i, j] = self.C[i, j] - (c * b) / a
+
+        # Perform row operations for the pivot row
+        self.C[l + 2:, k + 1] /= a
+        self.C[: l + 1, k + 1] /= a
+        self.C[l + 1, : k + 1] /= -a
+        self.C[l + 1, k + 2:] /= -a
+        self.C[l + 1, k + 1] = 1 / a
+
+        # Swap entering and leaving variables
         self.N[k], self.B[l] = self.B[l], self.N[k]
 
 
