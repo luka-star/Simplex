@@ -185,36 +185,33 @@ def bland(D,eps):
     # Otherwise D.N[k] is entering variable
     # l is None if D is Unbounded
     # Otherwise D.B[l] is a leaving variable  
-    
-    l=k=None
-    for i in range(len(D.N): 
-        for j in 
-            if D.C[0, 0] > eps: 
-                k = D.N[i]
-    for i in D.B: 
-        if D.C[] < D.B: 
-            lowestRow = i
+    k=l=None
+    print(D.C[0, 1:])
+    for i in range(1, D.N.shape[0]): 
+        if D.C[0, i] > eps:
+            k = i
+            break
             
-    for i in range(1, D.shape[0]): 
-        # check if the dictionary is unbounded
-        if np.all(D.C[1:, 0] <= eps):
-            l = None
-        
-        # check if the dictionary is optimal
-        if np.all(D.C[0, 1:] <= eps):
-            k = None
-        
+    # check if the dictionary is unbounded
+    if np.all(D.C[1:, 0] <= eps):
+        l = None
     
-  
+    for j in range(1, D.B.shape[0]):
+        if (-D.C[j, k]) > eps:
+            l = j
+            break
+            
+    # check if the dictionary is optimal
+    if np.all(D.C[0, 1:] <= eps):
+        k = None
+ 
     return k,l
     
 def largest_coefficient(D,eps):
     # Assumes a feasible dictionary D and find entering and leaving
     # variables according to the Largest Coefficient rule.
-    #
     # eps>=0 is such that numbers in the closed interval [-eps,eps]
     # are to be treated as if they were 0
-    #
     # Returns k and l such that
     # k is None if D is Optimal
     # Otherwise D.N[k] is entering variable¨
@@ -222,8 +219,23 @@ def largest_coefficient(D,eps):
     # Otherwise D.B[l] is a leaving variable
     
     k=l=None
-    # TODO
-    return k,l
+    # Find entering variable according to largest coefficient rule
+    maxco = np.max(D[0, 1:])  
+    if maxco <= eps:
+        k = None
+    else:
+        col = np.argmax(D[0, 1:]) + 1  # Add 1 to get the correct column index
+        k = col
+        # Find leaving variable
+        min_ratio = np.inf
+        for i in range(1, D.shape[0]):
+            if D[i, col] > eps:
+                ratio = D[i, 0] / D[i, col]
+                if ratio < min_ratio:
+                    min_ratio = ratio
+                    l = i
+    return k, l
+
 
 def largest_increase(D,eps):
     # Assumes a feasible dictionary D and find entering and leaving
@@ -282,6 +294,20 @@ def run_examples():
     D.pivot(2,2)
     print(D)
     print()
+    
+    c,A,b = example1()
+    D=Dictionary(c,A,b)
+    print('Testing Blands Rule')
+    print('Initial dictionary:')
+    print(D)
+    k,l = bland(D,np.finfo(np.float64).eps)
+    print('Pivot :')
+    print(k+1)
+    print('and')
+    if l == None: 
+        print('None')
+    else: 
+        print(l+1)
 
     D=Dictionary(c,A,b,np.float64)
     print('Example 1 with np.float64')
