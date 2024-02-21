@@ -186,7 +186,6 @@ def bland(D,eps):
     # l is None if D is Unbounded
     # Otherwise D.B[l] is a leaving variable  
     k=l=None
-    print(D.C[0, 1:])
     for i in range(1, D.N.shape[0]): 
         if D.C[0, i] > eps:
             k = i
@@ -219,21 +218,27 @@ def largest_coefficient(D,eps):
     # Otherwise D.B[l] is a leaving variable
     
     k=l=None
+  
     # Find entering variable according to largest coefficient rule
-    maxco = np.max(D[0, 1:])  
-    if maxco <= eps:
+    maxcoef = np.max(D.C[0,1:])  
+    if maxcoef <= eps:
         k = None
     else:
-        col = np.argmax(D[0, 1:]) + 1  # Add 1 to get the correct column index
-        k = col
+        k = np.argmax(D.C[0, 1:]) 
+       
         # Find leaving variable
         min_ratio = np.inf
-        for i in range(1, D.shape[0]):
-            if D[i, col] > eps:
-                ratio = D[i, 0] / D[i, col]
+        for i in range(1, D.C.shape[0]):
+            if D.C[i, k] > eps:
+                ratio = -(D.C[i, 0] / D.C[i, k+1])
                 if ratio < min_ratio:
                     min_ratio = ratio
-                    l = i
+                    l = i-1
+    
+     # check if the dictionary is unbounded
+    if np.all(D.C[1:, 0] <= eps):
+        l = None
+        
     return k, l
 
 
@@ -295,6 +300,8 @@ def run_examples():
     print(D)
     print()
     
+    # Testing Blands Rule
+
     c,A,b = example1()
     D=Dictionary(c,A,b)
     print('Testing Blands Rule')
@@ -308,6 +315,28 @@ def run_examples():
         print('None')
     else: 
         print(l+1)
+        
+    # Testing Largest Coefficient Rule
+    c,A,b = example1()
+    D=Dictionary(c,A,b)
+    print('Testing Coefficient Rule')
+    print('Initial dictionary:')
+    print(D)
+    k,l = largest_coefficient(D,np.finfo(np.float64).eps)
+    
+    print('Pivot :')
+    if k == None: 
+        print('None')
+    else: 
+        print(k+1)
+    print('and')
+    if l == None: 
+        print('None')
+    else: 
+        print(l+1)
+    D.pivot(k,l)
+    print(D)
+    
 
     D=Dictionary(c,A,b,np.float64)
     print('Example 1 with np.float64')
