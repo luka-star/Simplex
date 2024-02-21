@@ -179,15 +179,33 @@ def bland(D,eps):
     #
     # eps>=0 is such that numbers in the closed interval [-eps,eps]
     # are to be treated as if they were 0
-    #
+    
     # Returns k and l such that
     # k is None if D is Optimal
     # Otherwise D.N[k] is entering variable
     # l is None if D is Unbounded
-    # Otherwise D.B[l] is a leaving variable
-       
-    k=l=None
-    # TODO
+    # Otherwise D.B[l] is a leaving variable  
+    
+    l=k=None
+    for i in range(len(D.N): 
+        for j in 
+            if D.C[0, 0] > eps: 
+                k = D.N[i]
+    for i in D.B: 
+        if D.C[] < D.B: 
+            lowestRow = i
+            
+    for i in range(1, D.shape[0]): 
+        # check if the dictionary is unbounded
+        if np.all(D.C[1:, 0] <= eps):
+            l = None
+        
+        # check if the dictionary is optimal
+        if np.all(D.C[0, 1:] <= eps):
+            k = None
+        
+    
+  
     return k,l
     
 def largest_coefficient(D,eps):
@@ -199,7 +217,7 @@ def largest_coefficient(D,eps):
     #
     # Returns k and l such that
     # k is None if D is Optimal
-    # Otherwise D.N[k] is entering variable
+    # Otherwise D.N[k] is entering variable¨
     # l is None if D is Unbounded
     # Otherwise D.B[l] is a leaving variable
     
