@@ -204,7 +204,7 @@ def bland(D,eps):
     if np.all(D.C[0, 1:] <= eps):
         k = None
  
-    return k,l
+    return k-1,l-1
     
 def largest_coefficient(D,eps):
     # Assumes a feasible dictionary D and find entering and leaving
@@ -309,12 +309,17 @@ def run_examples():
     print(D)
     k,l = bland(D,np.finfo(np.float64).eps)
     print('Pivot :')
-    print(k+1)
+    if k == None: 
+        print('None')
+    else: 
+        print(k+1)
     print('and')
     if l == None: 
         print('None')
     else: 
         print(l+1)
+    D.pivot(k,l)
+    print(D)
         
     # Testing Largest Coefficient Rule
     c,A,b = example1()
