@@ -186,25 +186,28 @@ def bland(D,eps):
     # l is None if D is Unbounded
     # Otherwise D.B[l] is a leaving variable  
     k=l=None
-    for i in range(1, D.N.shape[0]): 
+    for i in range(1, D.N.shape[0]+1): 
         if D.C[0, i] > eps:
             k = i
             break
-            
-    # check if the dictionary is unbounded
-    if np.all(D.C[1:, 0] <= eps):
-        l = None
     
-    for j in range(1, D.B.shape[0]):
+     # check if the dictionary is optimal
+    if (k== None):
+        return k, l
+               
+    # check if the dictionary is unbounded
+    if np.all(D.C[1:, k] >= -eps):
+        l = None
+        
+    for j in range(1, D.B.shape[0]+1):
         if (-D.C[j, k]) > eps:
-            l = j
+            l = j-1
             break
-            
-    # check if the dictionary is optimal
     if np.all(D.C[0, 1:] <= eps):
-        k = None
- 
-    return k-1,l-1
+        return None,1
+    else:
+        k -= 1
+    return k,l
     
 def largest_coefficient(D,eps):
     # Assumes a feasible dictionary D and find entering and leaving
@@ -225,6 +228,9 @@ def largest_coefficient(D,eps):
         k = None
     else:
         k = np.argmax(D.C[0, 1:]) 
+        
+        if np.all(D.C[1:, k] >= -eps):
+            l = None
        
         # Find leaving variable
         min_ratio = np.inf
@@ -234,10 +240,7 @@ def largest_coefficient(D,eps):
                 if ratio < min_ratio:
                     min_ratio = ratio
                     l = i-1
-    
-     # check if the dictionary is unbounded
-    if np.all(D.C[1:, 0] <= eps):
-        l = None
+
         
     return k, l
 
@@ -281,9 +284,23 @@ def lp_solve(c,A,b,dtype=Fraction,eps=0,pivotrule=lambda D: bland(D,eps=0),verbo
     #
     # If LP has an optimal solution the return value is
     # LPResult.OPTIMAL,D, where D is an optimal dictionary.
+    
+    D = Dictionary(c,A,b,dtype)
+    while(True):
+        print(D)
+        k,l = pivotrule(D)
+        print(k,l)
+        if(k == None):
+            return LPResult.OPTIMAL, D
+        
+        if(l == None):
+            return LPResult.UNBOUNDED, None
+        
+        if(not(np.all(D.C[1:,0] >= eps))):
+            return LPResult.INFEASIBLE, None
+        
+        D.pivot(k,l) 
 
-    #TODO
-    return None,None
   
 def run_examples():
     # Example 1
