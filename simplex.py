@@ -8,6 +8,9 @@ def integer_pivoting_example(): return np.array([5,2]),np.array([[3,1],[2,5]]),n
 def exercise2_5(): return np.array([1,3]),np.array([[-1,-1],[-1,1],[1,2]]),np.array([-3,-1,4])
 def exercise2_6(): return np.array([1,3]),np.array([[-1,-1],[-1,1],[1,2]]),np.array([-3,-1,2])
 def exercise2_7(): return np.array([1,3]),np.array([[-1,-1],[-1,1],[-1,2]]),np.array([-3,-1,2])
+def cycleexample(): return np.array([1,-2,0,-2]),np.array([[0.5,-3.5,-2,4], 
+                                                           [0.5,-1,-0.5,0.5],
+                                                           [1,0,0,0]]),np.array([0,0,1])
 def random_lp(n,m,sigma=10): return np.round(sigma*np.random.randn(n)),np.round(sigma*np.random.randn(m,n)),np.round(sigma*np.abs(np.random.randn(m)))
 
 class Dictionary:
@@ -186,29 +189,63 @@ def bland(D,eps):
     # l is None if D is Unbounded
     # Otherwise D.B[l] is a leaving variable  
     k=l=None
+    lowestV = 0
+    for i in range(0, len(D.N)): 
+        if D.C[0, i + 1] > eps:
+            if D.N[i] <= D.N[lowestV]:
+                lowestV = i
+                k = lowestV
+    
+    
+    # check if the dictionary is optimal
+    if (k == None):
+        return k, l
+    
+    min_ratio = (np.inf, np.inf)
+    for i in range(1, D.C.shape[0]):
+        if D.C[i, k] > eps or D.C[i,k] < -eps:
+            ratio = np.abs(D.C[i, 0] / D.C[i, k])
+            if ratio < min_ratio[0]:
+                min_ratio = (ratio, i)
+                l = i-1
+            elif ratio == min_ratio[0]:
+                if min_ratio[1] > i: 
+                    l = i - 1
+                    min_ratio = (ratio, i)
+    
+
+    # check if the dictionary is unbounded
+    if np.all(D.C[1:,:] > eps):
+      return k, None
+    
+    return k-1, l
+
+ 
+#Find the first variable in the objective function and return its index, otherwise return None
+def find_entering(D,eps):
     for i in range(1, D.N.shape[0]+1): 
         if D.C[0, i] > eps:
-            k = i
-            break
-    
-     # check if the dictionary is optimal
-    if (k== None):
-        return k, l
-               
-    # check if the dictionary is unbounded
-    if np.all(D.C[1:, k] >= -eps):
-        l = None
-        
-    for j in range(1, D.B.shape[0]+1):
-        if (-D.C[j, k]) > eps:
-            l = j-1
-            break
-    if np.all(D.C[0, 1:] <= eps):
-        return None,1
-    else:
-        k -= 1
-    return k,l
-    
+            return i-1   
+    return None
+
+#Choose leaving variable according to one-phase simplex
+def find_leaving(D,k,eps):
+    l = None
+    min_ratio = np.inf
+    min_indices = []  
+    for i in range(1, D.C.shape[0]):
+        if D.C[i, k+1] < -eps:
+            ratio = -(D.C[i, 0] / D.C[i, k+1])
+            if min_ratio > ratio:
+                min_ratio = ratio
+                min_indices = [i-1]  
+            elif min_ratio == ratio:
+                min_indices.append(i-1)  
+    if min_indices:
+        l = min(min_indices)
+    return l
+
+
 def largest_coefficient(D,eps):
     # Assumes a feasible dictionary D and find entering and leaving
     # variables according to the Largest Coefficient rule.
@@ -216,7 +253,7 @@ def largest_coefficient(D,eps):
     # are to be treated as if they were 0
     # Returns k and l such that
     # k is None if D is Optimal
-    # Otherwise D.N[k] is entering variable¨
+    # Otherwise D.N[k] is entering variable
     # l is None if D is Unbounded
     # Otherwise D.B[l] is a leaving variable
     
@@ -286,20 +323,25 @@ def lp_solve(c,A,b,dtype=Fraction,eps=0,pivotrule=lambda D: bland(D,eps=0),verbo
     # LPResult.OPTIMAL,D, where D is an optimal dictionary.
     
     D = Dictionary(c,A,b,dtype)
+    
     while(True):
-        print(D)
-        k,l = pivotrule(D)
-        print(k,l)
+        if(not(np.all(D.C[1:,0] >= eps)) and np.all(D.C[0, 1:] < -eps)):
+            return LPResult.INFEASIBLE, None
+    
+        k = find_entering(D,eps)
+        
         if(k == None):
             return LPResult.OPTIMAL, D
+        
+        l = find_leaving(D,k,eps)        
         
         if(l == None):
             return LPResult.UNBOUNDED, None
         
-        if(not(np.all(D.C[1:,0] >= eps))):
-            return LPResult.INFEASIBLE, None
-        
+        print('Now pivoting: ', k, ' and ', l)
         D.pivot(k,l) 
+        
+        
 
   
 def run_examples():
@@ -315,11 +357,11 @@ def run_examples():
     print('x3 is entering and x6 leaving:')
     D.pivot(2,2)
     print(D)
-    print()
+    print() 
     
     # Testing Blands Rule
 
-    c,A,b = example1()
+    """ c,A,b = example1()
     D=Dictionary(c,A,b)
     print('Testing Blands Rule')
     print('Initial dictionary:')
@@ -336,10 +378,10 @@ def run_examples():
     else: 
         print(l+1)
     D.pivot(k,l)
-    print(D)
+    print(D) """
         
     # Testing Largest Coefficient Rule
-    c,A,b = example1()
+    """ c,A,b = example1()
     D=Dictionary(c,A,b)
     print('Testing Coefficient Rule')
     print('Initial dictionary:')
@@ -357,10 +399,10 @@ def run_examples():
     else: 
         print(l+1)
     D.pivot(k,l)
-    print(D)
+    print(D) """
     
 
-    D=Dictionary(c,A,b,np.float64)
+    """   D=Dictionary(c,A,b,np.float64)
     print('Example 1 with np.float64')
     print('Initial dictionary:')
     print(D)
@@ -387,7 +429,7 @@ def run_examples():
     print('x1 is entering and x0 leaving:')
     D.pivot(0,1)
     print(D)
-    print()
+    print() """
 
     # Solve Example 1 using lp_solve
     c,A,b = example1()
@@ -427,7 +469,7 @@ def run_examples():
     res,D=lp_solve(c,A,b)
     print(res)
     print(D)
-    print()
+    print() 
 
     #Integer pivoting
     c,A,b=example1()
@@ -441,7 +483,7 @@ def run_examples():
     print('x3 is entering and x6 leaving:')
     D.pivot(2,2)
     print(D)
-    print()
+    print() 
 
     c,A,b = integer_pivoting_example()
     D=Dictionary(c,A,b,int)
@@ -453,7 +495,16 @@ def run_examples():
     print(D)
     print('x2 is entering and x4 leaving:')
     D.pivot(1,1)
-    print(D) 
+    print(D)  
+    
+    c,A,b = cycleexample()
+    D=Dictionary(c,A,b)
+    print(D)
+    print('lp_solve Cycle example:')
+    res,D=lp_solve(c,A,b)
+    print(res)
+    print(D)
+    print() 
 
 
 run_examples()
