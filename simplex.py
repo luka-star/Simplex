@@ -223,7 +223,7 @@ def bland(D,eps):
  
 #Find the first variable in the objective function and return its index, otherwise return None
 def find_entering(D,eps):
-    for i in range(1, D.N.shape[0]+1): 
+    for i in range(1, len(D.N)): 
         if D.C[0, i] > eps:
             return i-1   
     return None
@@ -234,8 +234,9 @@ def find_leaving(D,k,eps):
     min_ratio = np.inf
     min_indices = []  
     for i in range(1, D.C.shape[0]):
-        if D.C[i, k+1] < -eps:
-            ratio = -(D.C[i, 0] / D.C[i, k+1])
+        if not(D.C[i, k+1] <= eps and D.C[i, k+1] >= -eps):
+            ratio = np.abs(D.C[i, 0] / D.C[i, k+1])
+            print('ratio at ',i,ratio)
             if min_ratio > ratio:
                 min_ratio = ratio
                 min_indices = [i-1]  
@@ -299,7 +300,36 @@ def largest_increase(D,eps):
     # TODO
     return k,l
 
-def lp_solve(c,A,b,dtype=Fraction,eps=0,pivotrule=lambda D: bland(D,eps=0),verbose=False):
+#Implementing twophase Simplex using auxillary var.
+def two_phase_solve(c,A,b,dtype=Fraction,eps=0):
+    OGobjectivefunc = c
+    #init. aux. dic.
+    D = Dictionary(None, A,b)
+    print(D)
+
+    k = len(D.N)-1
+    print('k: ',k)
+    l = find_leaving(D,k, eps)
+    
+    print('l: ',l)
+    D.pivot(k,l)
+
+    
+    print(D)
+
+    res, D = lp_solve(D)
+    print(D)
+    """ for i in range(D.B.shape[0]):
+        if np.any(D.B == 0):
+            print('hejlo')
+            return res, D """
+    
+    return res, D
+            
+        
+    
+
+def lp_solve(D,eps=0,pivotrule=lambda D: bland(D,eps=0),verbose=False):
     # Simplex algorithm
     #    
     # Input is LP in standard form given by vectors and matrices
@@ -322,7 +352,6 @@ def lp_solve(c,A,b,dtype=Fraction,eps=0,pivotrule=lambda D: bland(D,eps=0),verbo
     # If LP has an optimal solution the return value is
     # LPResult.OPTIMAL,D, where D is an optimal dictionary.
     
-    D = Dictionary(c,A,b,dtype)
     
     while(True):
         if(not(np.all(D.C[1:,0] >= eps)) and np.all(D.C[0, 1:] < -eps)):
@@ -346,7 +375,7 @@ def lp_solve(c,A,b,dtype=Fraction,eps=0,pivotrule=lambda D: bland(D,eps=0),verbo
   
 def run_examples():
     # Example 1
-    c,A,b = example1()
+    """ c,A,b = example1()
     D=Dictionary(c,A,b)
     print('Example 1 with Fraction')
     print('Initial dictionary:')
@@ -357,7 +386,7 @@ def run_examples():
     print('x3 is entering and x6 leaving:')
     D.pivot(2,2)
     print(D)
-    print() 
+    print() """ 
     
     # Testing Blands Rule
 
@@ -413,8 +442,8 @@ def run_examples():
     D.pivot(2,2)
     print(D)
     print()
-
-    # Example 2
+"""
+    """ # Example 2
     c,A,b = example2()
     print('Example 2')
     print('Auxillary dictionary')
@@ -429,18 +458,19 @@ def run_examples():
     print('x1 is entering and x0 leaving:')
     D.pivot(0,1)
     print(D)
-    print() """
+    print()  """
 
     # Solve Example 1 using lp_solve
     c,A,b = example1()
     print('lp_solve Example 1:')
-    res,D=lp_solve(c,A,b)
+    D = Dictionary(c,A,b)
+    res,D=lp_solve(D)
     print(res)
     print(D)
     print()
 
     # Solve Example 2 using lp_solve
-    c,A,b = example2()
+    """ c,A,b = example2()
     print('lp_solve Example 2:')
     res,D=lp_solve(c,A,b)
     print(res)
@@ -453,24 +483,24 @@ def run_examples():
     res,D=lp_solve(c,A,b)
     print(res)
     print(D)
-    print()
+    print() """
 
     # Solve Exercise 2.6 using lp_solve
     c,A,b = exercise2_6()
     print('lp_solve Exercise 2.6:')
-    res,D=lp_solve(c,A,b)
+    res,D=two_phase_solve(c,A,b, 0)
     print(res)
     print(D)
     print()
 
-    # Solve Exercise 2.7 using lp_solve
+    """ # Solve Exercise 2.7 using lp_solve
     c,A,b = exercise2_7()
     print('lp_solve Exercise 2.7:')
     res,D=lp_solve(c,A,b)
     print(res)
     print(D)
-    print() 
-
+    print()  """
+""" 
     #Integer pivoting
     c,A,b=example1()
     D=Dictionary(c,A,b,int)
@@ -504,7 +534,7 @@ def run_examples():
     res,D=lp_solve(c,A,b)
     print(res)
     print(D)
-    print() 
+    print()  """
 
 
 run_examples()
