@@ -182,50 +182,6 @@ class LPResult(Enum):
     INFEASIBLE = 2
     UNBOUNDED = 3
 
-def bland(D,eps):
-    # Assumes a feasible dictionary D and finds entering and leaving
-    # variables according to Bland's rule.
-    #
-    # eps>=0 is such that numbers in the closed interval [-eps,eps]
-    # are to be treated as if they were 0
-    
-    # Returns k and l such that
-    # k is None if D is Optimal
-    # Otherwise D.N[k] is entering variable
-    # l is None if D is Unbounded
-    # Otherwise D.B[l] is a leaving variable  
-    k=l=None
-    lowestV = 0
-    for i in range(0, len(D.N)): 
-        if D.C[0, i + 1] > eps:
-            if D.N[i] <= D.N[lowestV]:
-                lowestV = i
-                k = lowestV
-    
-    
-    # check if the dictionary is optimal
-    if (k == None):
-        return k, l
-    
-    min_ratio = (np.inf, np.inf)
-    for i in range(1, D.C.shape[0]):
-        if D.C[i, k] > eps or D.C[i,k] < -eps:
-            ratio = np.abs(D.C[i, 0] / D.C[i, k])
-            if ratio < min_ratio[0]:
-                min_ratio = (ratio, i)
-                l = i-1
-            elif ratio == min_ratio[0]:
-                if min_ratio[1] > i: 
-                    l = i - 1
-                    min_ratio = (ratio, i)
-    
-
-    # check if the dictionary is unbounded
-    if np.all(D.C[1:,:] > eps):
-      return k, None
-    
-    return k-1, l
-
  
 #Find the first variable in the objective function and return its index, otherwise return None
 def find_entering(D,eps):
@@ -258,21 +214,6 @@ def find_leaving(D,k,eps):
         l = min(min_indices)
     return l
 
-def find_leaving_onephase(D,k,eps):
-    l = None
-    min_ratio = np.inf
-    min_indices = []  
-    for i in range(1, D.C.shape[0]):
-        if not(D.C[i, k+1] <= eps and D.C[i, k+1] >= -eps):
-            ratio = D.C[i, 0] / D.C[i, k+1] #fjernede abs
-            if min_ratio > ratio:
-                min_ratio = ratio
-                min_indices = [i-1]  
-            elif min_ratio == ratio:
-                min_indices.append(i-1)  
-    if min_indices:
-        l = min(min_indices)
-    return l
 
 def largest_coefficient(D,eps):
     # Assumes a feasible dictionary D and find entering and leaving
@@ -328,168 +269,75 @@ def largest_increase(D,eps):
     return k,l
 
 
-def phase1(D, A,b,dtype, pivotrule):
-    objectiveFunction = D.C[0, :].copy() #copy the objective function
-    AD = Dictionary(None,A,b,dtype) #create auxillary dictionary
-    x0 = AD.N[-1].copy() #find the index of x0
-    leavingVariable = np.argmin(AD.C[1:,0]) #find the index of the leaving variable
-    EnteringVariable = np.shape(AD.C)[1]-2 #find the entering variable
-    print("leaving", leavingVariable)
-    print("entering", EnteringVariable)
-    AD.pivot(EnteringVariable, leavingVariable) #do the first pivot
-    print("first auxillary pivot: ")
-    print(AD)
-    while True: #while loop to keep pivoting until x0 is out of the basis
-        if x0 in AD.N: #if x0 is a non-basic variable then the auxillary dictionary could be feasible
-            if np.any(AD.C[1:,0] < 0): #if the dictionary is infeasible
-                return LPResult.INFEASIBLE,None #PLACEHOLDER - x0 could return to non-basic variables multiple times in order to make dictionary feasible
-            else:
-                indexOfx0 = np.where(AD.N == x0) #find the index of x0
-                indexOfx0 = indexOfx0[0][0]+1 #get the index of x0
-                AD.N = np.delete(AD.N, indexOfx0-1) #delete x0 from the non-basic variables
-                AD.C = np.delete(AD.C, indexOfx0, 1) #delete the column of x0
-                for i in range(0, len(D.N)): #iterate through the non-basic variables in the original dictionary
-                    if D.N[i] in AD.B: #if the non-basic variable is now a basic variable in the auxillary dictionary
-                        indexOfB = np.where(AD.B == D.N[i]) #find the index of the basic variable in auxillary dictionary
-                        indexOfB = indexOfB[0][0] #get the index of the basic variable
-                        indexOfN = np.where(D.N == D.N[i]) #find the index of the non-basic variable in original dictionary
-                        indexOfN = indexOfN[0][0] #get the index of the non-basic variable
-                        coefficientOfNonBasicVar = D.C[0, indexOfN+1] #get the coefficient of the non-basic variable
-                        newInstanceOfVariable = AD.C[indexOfB+1, :] * coefficientOfNonBasicVar #multiply the new expression of the basic variable by the coefficient of the non-basic variable
-                        objectiveFunction = np.delete(objectiveFunction, indexOfN+1) #delete the non-basic variable that is now a basic variable in the auxillary dictionary
-                        objectiveFunction = np.hstack((objectiveFunction, 0)) #add a new instance of the basic variable in the original dictionary and make it a non-basic variable
-                        objectiveFunction = objectiveFunction + newInstanceOfVariable #add the new instance of the basic variable to the objective function
-                        AD.C = np.delete(AD.C, 0, 0) #delete the z row or objective function-row
-                        AD.C = np.vstack((objectiveFunction, AD.C)) #add the objective function back to the dictionary
-                        AD #set the original dictionary to the auxillary dictionary
-                        print("new original dictionary: ")
-                        print(D)
-                break
-        k,l = pivotrule(AD) #find the entering and leaving variables
-        print("k: ", k, "l: ", l)
-        if k is None: #if the auxillary dictionary is optimal and x0 is still in the basis then the original dictionary is infeasible
-            return LPResult.INFEASIBLE,None 
-        AD.pivot(k,l) #pivot the auxillary dictionary
-        print("continued auxillary pivot: ")
-        print(AD)
-    return AD #return the new auxillary dictionary, that serves as the original dictionary for phase 2 
-
 #Implementing twophase Simplex using auxillary var.
 def two_phase_solve(c,A,b,dtype=Fraction,eps=0):
-    
-    og = Dictionary(c,A,b).C[0,:]
-       
-    D = Dictionary(None, A,b)
-    
-    k = len(D.N)-1
+    # Phase 1
+    D = Dictionary(c,A,b) #copy the objective function
+    objfun = D.C[0, :]
+    print(objfun)
+    auxD = Dictionary(None, A,b) #create auxillary dictionary
+    x0 = len(auxD.N)
+    k = len(auxD.N)-1 
+    l = np.argmin(auxD.C[1:,0])
+    auxD.pivot(k,l)
+    auxRes, auxD = lp_solve(auxD)
+    print(auxD)
 
-    l = find_leaving_onephase(D,k, eps)
+    if auxRes != LPResult.OPTIMAL:
+        return auxRes, auxD
     
-    D.pivot(k,l)
-    
-    res, Dres, last = lp_solve(D)
-       
-    if np.any(Dres.N == k+1):
-        #x0 is a non-basic varible, so we can just drop it and do second phase...
-        index = int(np.where(Dres.N == k+1)[0])
-        
-        D = drop_x0_basic(Dres,index,og, last)
+    if x0 in auxD.B: 
+        indexOfx0 = (np.where(auxD.B == x0))[0][0]
+        print(indexOfx0)
+        if -auxD.C[indexOfx0, 0] < 0:
+            return LPResult.INFEASIBLE, auxD
+        auxD.pivot(0, indexOfx0)
 
-        res, D, _ = lp_solve(D)
-        return res, D
-    else:
-        #x0 is a basic variable, so we have to do something different...
-        index = int(np.where(Dres.B == k+1)[0])
-        entering = -1 
-        for i in range(len(D.N)):
-            if D.N[i] <= len(c):
-                entering = i
-                break 
-        D.pivot(entering, index)
-        
-        D = drop_x0_basic(Dres,index,og, last)
-        
-        res, D, _ = lp_solve(D)
+    x0InN = (np.where(auxD.N == x0))[0][0]
+    auxD.N = np.delete(auxD.N, x0InN)
+    auxD.C = np.delete(auxD.C, x0InN + 1, 1)
 
-        return res, D
 
-            
-    
-def drop_x0_nonbasic(D,i,c):
-    # Drop the artificial variable x0 from the basic variables list
-    print("c",c)
-
-    numberN0 = len(D.N)
-    basic = D.B 
-    nonbasic = np.delete(D.N,i) #delete index for x0
-    
-    for j in range(len(basic)):
-        if numberN0 < basic[j]:
-            basic[j] -=1
-
-    for q in range(len(nonbasic)):
-        if numberN0 < nonbasic[q]:
-            nonbasic[q] -=1
+    while(True):
+        all_ogs_are_basic = True
+        for i in D.N:
+            if not(i in auxD.B):
+                all_ogs_are_basic = False
+        if all_ogs_are_basic: # if all original non-basic variables are basic
+            indexes = []
+            for i in range(len(auxD.B)): 
+                if auxD.B[i] in D.N: 
+                    indexes.append((i + 1, c[auxD.B[i] - 1]))
+            for i, j in indexes:
+                auxD.C[0, :] += auxD.C[i, :] * j
+            break
+        else: 
+            for i in D.N: 
+                if not(i in auxD.B):
+                    index_of_n = np.where(auxD.N == i)[0][0]
+                    leaving = np.where(auxD.B >= len(D.N) + 1)[0][0]
+                    auxD.pivot(index_of_n, leaving)
                 
-    newC = np.delete(D.C, i + 1, axis=1) 
-    
-    D=Dictionary(newC[0,1:],-1*newC[1:,1:],newC[1:,0]) # construct new dictionary  
-    D.C[0] = newC[0]
-    D.N = nonbasic
-    D.B = basic
- 
-    return D
-            
-def drop_x0_basic(D,i,c, last):
-    # Drop the artificial variable x0 from the basic variables list
-    numberN0 = len(D.N)
-    basic = D.B 
-    nonbasic = np.delete(D.N,i) #delete index for x0
-    
-    for j in range(len(basic)):
-        if numberN0 < basic[j]:
-            basic[j] -=1
+    return lp_solve(auxD)
+  
 
-    for q in range(len(nonbasic)):
-        if numberN0 < nonbasic[q]:
-            nonbasic[q] -=1
-            
-    c = np.append(c, 0)
-    
-    D.C[0] = c - last
-    newC = np.delete(D.C, i + 1, axis=1) 
-    
-    D=Dictionary(newC[0,1:],-1*newC[1:,1:],newC[1:,0]) # construct new dictionary  
-    D.C[0]=newC[0]
-    
-    D.N = nonbasic
-    D.B = basic
-    
-    for i in range(len(D.C[0, :])): 
-        D.C[0, i] -= last[i] 
- 
-    return D
-    
  
  
 def lp_solve(D,eps=0,pivotrule=lambda D: bland(D,eps=0),verbose=False):
-    last_obj_func = None
     while(True):
         if(not(np.all(D.C[1:,0] >= eps)) and np.all(D.C[0, 1:] < -eps)):
-            return LPResult.INFEASIBLE, None, last_obj_func
+            return LPResult.INFEASIBLE, None
     
         k = find_entering(D,eps)
         
         if(k == None):
-            return LPResult.OPTIMAL, D, last_obj_func
+            return LPResult.OPTIMAL, D
         
         l = find_leaving(D,k,eps)        
         
         if(l == None):
-            return LPResult.UNBOUNDED, None, last_obj_func
+            return LPResult.UNBOUNDED, None
         
-        last_obj_func = (D.C[0, :].copy())
-      
         D.pivot(k,l) 
   
 
@@ -592,12 +440,12 @@ def run_examples():
     print() """
 
     # Solve Example 2 using lp_solve
-    c,A,b = example2()
+    """ c,A,b = example2()
     print('lp_solve aux Example 2:')
     res,D=two_phase_solve(c,A,b)
     print(res)
     print(D)
-    print() 
+    print()  """
     
 
     # Solve Exercise 2.5 using lp_solve
@@ -616,13 +464,13 @@ def run_examples():
     print(D)
     print() """
 
-    """ # Solve Exercise 2.7 using lp_solve
+    # Solve Exercise 2.7 using lp_solve
     c,A,b = exercise2_7()
     print('lp_solve Exercise 2.7:')
-    res,D=lp_solve(c,A,b)
+    res,D=two_phase_solve(c,A,b, 0)
     print(res)
     print(D)
-    print()  """
+    print() 
     """ 
     #Integer pivoting
     c,A,b=example1()
