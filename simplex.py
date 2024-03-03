@@ -185,33 +185,46 @@ class LPResult(Enum):
  
 #Find the first variable in the objective function and return its index, otherwise return None
 def find_entering(D,eps):
-    """ for i in range(1, len(D.N)): 
-        if D.C[0, i] > eps:
-            return i-1   
-    return None """
-    maxcoef = np.max(D.C[0,1:])  
+    coeffs = []
+    for i, e in enumerate(D.N):
+        coeffs.append((i,e))
+    
+    coeffs = sorted(coeffs, key=(lambda a: a[1]))
+    for i in coeffs:
+        if D.C[0, i[0] + 1] > eps:
+            return i[0]
+    return None
+    """ maxcoef = np.max(D.C[0,1:])  
     if maxcoef <= eps:
         return None
     else:
-        return np.argmax(D.C[0, 1:]) 
+        return np.argmin(D.C[0, 1:])  """
         
 
 #Choose leaving variable according to one-phase simplex
 def find_leaving(D,k,eps):
     l = None
-    print(D)
     min_ratio = np.inf
-    min_indices = []  
+    min_indices = []
+    allratio = []    
     for i in range(1, D.C.shape[0]):
         if not(D.C[i, k+1] <= eps and D.C[i, k+1] >= -eps):
-            ratio = np.abs(D.C[i, 0] / D.C[i, k+1]) #fjernede abs
+            ratio =  D.C[i, 0] / D.C[i, k+1]
+            allratio.append(ratio)
+            ratio = np.abs(ratio)
             if min_ratio > ratio:
                 min_ratio = ratio
                 min_indices = [i-1]  
             elif min_ratio == ratio:
                 min_indices.append(i-1)  
+        else: 
+            allratio.append(0)
     if min_indices:
         l = min(min_indices)
+    
+    if all(x < eps for x in allratio):
+        return None 
+
     return l
 
 
@@ -317,6 +330,7 @@ def two_phase_solve(c,A,b,dtype=Fraction,eps=0):
                     index_of_n = np.where(auxD.N == i)[0][0]
                     leaving = np.where(auxD.B >= len(D.N) + 1)[0][0]
                     auxD.pivot(index_of_n, leaving)
+    print(auxD)
                 
     return lp_solve(auxD)
   
@@ -440,36 +454,36 @@ def run_examples():
     print() """
 
     # Solve Example 2 using lp_solve
-    """ c,A,b = example2()
+    c,A,b = example2()
     print('lp_solve aux Example 2:')
     res,D=two_phase_solve(c,A,b)
     print(res)
-    print(D)
-    print()  """
+    """ print(D) """
+    print() 
     
 
     # Solve Exercise 2.5 using lp_solve
-    """ c,A,b = exercise2_5()
+    c,A,b = exercise2_5()
     print('lp_solve aux Exercise 2.5:')
     res,D=two_phase_solve(c,A,b)
     print(res)
-    print(D)
-    print() """  
+#   print(D)
+    print()  
 
     # Solve Exercise 2.6 using lp_solve
-    """ c,A,b = exercise2_6()
+    c,A,b = exercise2_6()
     print('lp_solve Exercise 2.6:')
     res,D=two_phase_solve(c,A,b, 0)
     print(res)
-    print(D)
-    print() """
+    #print(D)
+    print() 
 
     # Solve Exercise 2.7 using lp_solve
     c,A,b = exercise2_7()
     print('lp_solve Exercise 2.7:')
     res,D=two_phase_solve(c,A,b, 0)
     print(res)
-    print(D)
+    #print(D)
     print() 
     """ 
     #Integer pivoting
