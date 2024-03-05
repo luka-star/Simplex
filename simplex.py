@@ -3,6 +3,8 @@ import scipy.optimize
 import numpy as np
 from fractions import Fraction
 from enum import Enum
+import matplotlib.pyplot as plt
+
 
 
 
@@ -212,7 +214,8 @@ class Dictionary:
         # l is pivot row
         # k is pivot column
         # save pivot coefficient
-        print("Pivoting ", k, l)
+
+        # print("Pivoting ", k, l)
         a = self.C[l + 1, k + 1]
 
         # Update all elements of the matrix except the pivot row and pivot column
@@ -332,9 +335,11 @@ def largest_increase(D, eps):
     # Otherwise D.N[k] is entering variable
     # l is None if D is Unbounded
     # Otherwise D.B[l] is a leaving variable
-
     k = l = None
-    # TODO
+    
+    
+
+
     return k, l
 
 
@@ -343,21 +348,21 @@ def two_phase_solve(c, A, b, dtype=Fraction, eps=0):
     # Phase 1
     D = Dictionary(c, A, b)  # copy the objective function
     objfun = D.C[0, :]
-    print(objfun)
+    # print(objfun)
     auxD = Dictionary(None, A, b)  # create auxillary dictionary
     x0 = len(auxD.N)
     k = len(auxD.N) - 1
     l = np.argmin(auxD.C[1:, 0])
     auxD.pivot(k, l)
     auxRes, auxD = lp_solve(auxD)
-    print(auxD)
+    # print(auxD)
 
     if auxRes != LPResult.OPTIMAL:
         return auxRes, auxD
 
     if x0 in auxD.B:
         indexOfx0 = (np.where(auxD.B == x0))[0][0]
-        print(indexOfx0)
+        # print(indexOfx0)
         if -auxD.C[indexOfx0, 0] < 0:
             return LPResult.INFEASIBLE, auxD
         auxD.pivot(0, indexOfx0)
@@ -385,7 +390,7 @@ def two_phase_solve(c, A, b, dtype=Fraction, eps=0):
                     index_of_n = np.where(auxD.N == i)[0][0]
                     leaving = np.where(auxD.B >= len(D.N) + 1)[0][0]
                     auxD.pivot(index_of_n, leaving)
-    print(auxD)
+    # print(auxD)
 
     return lp_solve(auxD)
 
@@ -409,8 +414,8 @@ def lp_solve(D, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
 
 
 def run_examples():
-    # Ex 1 with Fraction
-    start_time = timeit.default_timer()
+   # Ex 1 with Fraction
+    """ 
     c, A, b = example1()
     D = Dictionary(c, A, b)
     print("Example 1 with Fraction")
@@ -422,8 +427,7 @@ def run_examples():
     # print('x3 is entering and x6 leaving:')
     D.pivot(2, 2)
     # print(D)
-    # print()
-    end_time_fraction = timeit.default_timer() - start_time
+    # print() """
 
     # Testing Blands Rule
 
@@ -468,6 +472,7 @@ def run_examples():
     print(D) """
 
     # Ex 1 with np.float64
+    """
     start_time = timeit.default_timer()
     D = Dictionary(c, A, b, np.float64)
     print("Example 1 with np.float64")
@@ -481,6 +486,7 @@ def run_examples():
     # print(D)
     # print()
     end_time_float = timeit.default_timer() - start_time
+    """
 
     """ # Example 2
     c,A,b = example2()
@@ -587,18 +593,41 @@ def run_examples():
     print(D)
     print() """
 
-    # Ex 1 with SciPy linprog
+    c, A, b = random_lp(100, 100)
+    print("Example 1 with Fraction")
     start_time = timeit.default_timer()
-    c, A, b = example1()
+    res1, res2 = two_phase_solve(c, A, b, Fraction)
+    end_time_fraction = timeit.default_timer() - start_time
+    print(res2)
+    # print()
+
+    # Random 100x100 with np.float64
+    c, A, b = random_lp(100, 100)
+    print("Random 100x100 with np.float64")
+    start_time = timeit.default_timer()
+    res1, res2 = two_phase_solve(c, A, b, np.float64)
+    end_time_float = timeit.default_timer() - start_time
+    print(res2)
+    # print()
+    
+    # Random 100x100 with SciPy linprog
+    c, A, b = random_lp(100, 100)
     print("SciPy linprog Example 1:")
-    res = scipy.optimize.linprog(c, A_ub=A, b_ub=b, method="highs-ds")
+    start_time = timeit.default_timer()
+    res = scipy.optimize.linprog(c, A_ub=A, b_ub=b, method="highs")
+    end_time_scipy = timeit.default_timer() - start_time
     print(res.x)
     print()
-    end_time_scipy = timeit.default_timer() - start_time
 
     print("Benchmarks:")
     print(f"Time for Fraction Ex. 1     : {round(end_time_fraction, 7)} seconds")
     print(f"Time for np.float64 Ex. 1   : {round(end_time_float, 7)} seconds")
     print(f"Time for SciPy Ex. 1        : {round(end_time_scipy, 7)} seconds")
+    
+    xpoints = np.array([1, 8])
+    ypoints = np.array([3, 10])
+
+    plt.plot(xpoints, ypoints, 'o')
+    plt.show()
 
 run_examples()
