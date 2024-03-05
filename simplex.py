@@ -68,7 +68,8 @@ def auxexample():
     )
 
 
-def random_lp(n, m, sigma=10):
+def random_lp(n, m, sigma=10, seed=0):
+    np.random.seed(seed)
     return (
         np.round(sigma * np.random.randn(n)),
         np.round(sigma * np.random.randn(m, n)),
@@ -251,7 +252,7 @@ def find_entering(D, eps):
 
     coeffs = sorted(coeffs, key=(lambda a: a[1]))
     for i in coeffs:
-        if D.C[0, i[0] + 1] > eps:
+        if D.C[0, i[0]+1] > eps:
             return i[0]
     return None
     """ maxcoef = np.max(D.C[0,1:])  
@@ -282,7 +283,7 @@ def find_leaving(D, k, eps):
     if min_indices:
         l = min(min_indices)
 
-    if all(x < eps for x in allratio):
+    if all(x < eps for x in D.C[:, k]) or all(x >= eps for x in D.C[:, k]) or all(x < eps for x in allratio):
         return None
 
     return l
@@ -342,20 +343,36 @@ def largest_increase(D, eps):
 
     return k, l
 
+def helper(D, eps=0):
+    while(True):
+        k = find_entering(D, eps)
+
+        if k == None:
+            return LPResult.OPTIMAL, D
+
+        l = find_leaving(D, k, eps)
+
+        if l == None:
+            return LPResult.UNBOUNDED, D
+
+        D.pivot(k, l)
 
 # Implementing twophase Simplex using auxillary var.
 def two_phase_solve(c, A, b, dtype=Fraction, eps=0):
     # Phase 1
-    D = Dictionary(c, A, b)  # copy the objective function
+    D = Dictionary(c, A, b, dtype)  # copy the objective function
     objfun = D.C[0, :]
     # print(objfun)
-    auxD = Dictionary(None, A, b)  # create auxillary dictionary
+    auxD = Dictionary(None, A, b, dtype)  # create auxillary dictionary
     x0 = len(auxD.N)
     k = len(auxD.N) - 1
     l = np.argmin(auxD.C[1:, 0])
+    if D.C[l + 1, 0] <= eps and D.C[l + 1, 0] >= -eps:
+        print(D.C[l +1, 0])
+        return LPResult.OPTIMAL, auxD
     auxD.pivot(k, l)
-    auxRes, auxD = lp_solve(auxD)
-    # print(auxD)
+    print(auxD)
+    auxRes, auxD = helper(auxD)
 
     if auxRes != LPResult.OPTIMAL:
         return auxRes, auxD
@@ -363,7 +380,8 @@ def two_phase_solve(c, A, b, dtype=Fraction, eps=0):
     if x0 in auxD.B:
         indexOfx0 = (np.where(auxD.B == x0))[0][0]
         # print(indexOfx0)
-        if -auxD.C[indexOfx0, 0] < 0:
+        if -auxD.C[indexOfx0 + 1, 0] < 0:
+            print("w < 0 == -x_0 < 0, aka x_0 positive")
             return LPResult.INFEASIBLE, auxD
         auxD.pivot(0, indexOfx0)
 
@@ -390,15 +408,15 @@ def two_phase_solve(c, A, b, dtype=Fraction, eps=0):
                     index_of_n = np.where(auxD.N == i)[0][0]
                     leaving = np.where(auxD.B >= len(D.N) + 1)[0][0]
                     auxD.pivot(index_of_n, leaving)
-    # print(auxD)
+    print(auxD)
 
     return lp_solve(auxD)
 
 
 def lp_solve(D, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     while True:
-        if not (np.all(D.C[1:, 0] >= eps)) and np.all(D.C[0, 1:] < -eps):
-            return LPResult.INFEASIBLE, None
+        if not (np.all(D.C[1:, 0] >= -eps)) and np.all(D.C[0, 1:] < -eps):
+            return LPResult.INFEASIBLE, D
 
         k = find_entering(D, eps)
 
@@ -408,7 +426,7 @@ def lp_solve(D, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
         l = find_leaving(D, k, eps)
 
         if l == None:
-            return LPResult.UNBOUNDED, None
+            return LPResult.UNBOUNDED, D
 
         D.pivot(k, l)
 
@@ -592,42 +610,48 @@ def run_examples():
     print(res)
     print(D)
     print() """
-
-    c, A, b = random_lp(100, 100)
-    print("Example 1 with Fraction")
+    
+    seed = 200000
+    n = 10
+    m = 10
+    c, A, b = random_lp(n, m, seed)
+    D = Dictionary(c, A, b, Fraction)
+    print("Random with Fraction")
     start_time = timeit.default_timer()
     res1, res2 = two_phase_solve(c, A, b, Fraction)
     end_time_fraction = timeit.default_timer() - start_time
-    print(res2)
+    print(res1)
+    # print(res2)
     # print()
 
     # Random 100x100 with np.float64
-    c, A, b = random_lp(100, 100)
-    print("Random 100x100 with np.float64")
+    c, A, b = random_lp(n, m, seed)
+    print("Random with np.float64")
     start_time = timeit.default_timer()
     res1, res2 = two_phase_solve(c, A, b, np.float64)
     end_time_float = timeit.default_timer() - start_time
-    print(res2)
+    print(res1)
+    # print(res2)
     # print()
     
-    # Random 100x100 with SciPy linprog
-    c, A, b = random_lp(100, 100)
-    print("SciPy linprog Example 1:")
+    # Random 100x100 with SciPy linprog 
+    c, A, b = random_lp(n, m, seed)
+    D = Dictionary(c, A, b, np.float64)
+    print("Random SciPy linprog")
     start_time = timeit.default_timer()
     res = scipy.optimize.linprog(c, A_ub=A, b_ub=b, method="highs")
     end_time_scipy = timeit.default_timer() - start_time
-    print(res.x)
     print()
 
     print("Benchmarks:")
-    print(f"Time for Fraction Ex. 1     : {round(end_time_fraction, 7)} seconds")
-    print(f"Time for np.float64 Ex. 1   : {round(end_time_float, 7)} seconds")
-    print(f"Time for SciPy Ex. 1        : {round(end_time_scipy, 7)} seconds")
+    print(f"Time for Fraction - Random    : {round(end_time_fraction, 7)} seconds")
+    print(f"Time for np.float64 - Random  : {round(end_time_float, 7)} seconds")
+    print(f"Time for SciPy - Random       : {round(end_time_scipy, 7)} seconds")
     
     xpoints = np.array([1, 8])
     ypoints = np.array([3, 10])
 
-    plt.plot(xpoints, ypoints, 'o')
-    plt.show()
-
+    # plt.plot(xpoints, ypoints, 'o')
+    # plt.show()
+    
 run_examples()
