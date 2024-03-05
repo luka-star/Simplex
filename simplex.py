@@ -1,11 +1,11 @@
 import timeit
+import scipy.optimize
 import numpy as np
 from fractions import Fraction
 from enum import Enum
 import matplotlib.pyplot as plt
 
 
-import scipy
 
 
 def example1():
