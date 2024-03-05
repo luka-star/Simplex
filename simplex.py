@@ -1,9 +1,9 @@
 import timeit
+import scipy.optimize
 import numpy as np
 from fractions import Fraction
 from enum import Enum
 
-import scipy
 
 
 def example1():
