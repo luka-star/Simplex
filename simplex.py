@@ -1,4 +1,3 @@
-import time
 import timeit
 import numpy as np
 from fractions import Fraction
