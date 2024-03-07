@@ -1,8 +1,10 @@
-import timeit
+import time
 import scipy.optimize
 import numpy as np
 from fractions import Fraction
 from enum import Enum
+from math import log
+
 import matplotlib.pyplot as plt
 
 
@@ -264,6 +266,8 @@ def find_entering(D, eps):
 # Choose leaving variable according to one-phase simplex
 def find_leaving(D, k, eps):
     l = None
+    if k == None:
+        return None
     min_ratio = np.inf
     min_indices = []
     allratio = []
@@ -345,7 +349,10 @@ def largest_increase(D, eps=0):
     # l is None if D is Unbounded
     # Otherwise D.B[l] is a leaving variable
     k = l = None
-    find_leaving_largest_inc(D)
+    print("bruh")
+    print(D)
+    k, l = find_leaving_largest_inc(D)
+    print(k, l)
     return k, l
 
 
@@ -363,29 +370,61 @@ def helper(D, eps=0):
 
         D.pivot(k, l)
 
-def find_leaving_largest_inc(D):
+def find_leaving_largest_inc(D, eps=0):
+    # find lowest ratio
     ratios = []
     for i in range(len(D.B)): 
-        ratios.append(np.abs(D.C[i +1, 0] / D.C[i + 1, 1:]))
+        kratio = []
+        for k in range(len(D.N)):
+            coeff = D.C[i + 1, k + 1]
+            if  coeff > eps or coeff < -eps:
+                kratio.append(np.abs(D.C[i +1, 0] / D.C[i + 1, k +1]))
+        ratios.append(kratio)
     row = []
     leaving = None
     for i in ratios: 
         row.append(i[np.argmin(i)])
-    leaving = np.argmin(row)
-    print(leaving)
-    row = ratios[leaving]
+    temp = np.inf 
+    tempLowest = []
+    print("row",row)
+    print("tempLowest:", tempLowest)
+    print(np.nanargmin(row))
+    return None, None
+    if len(tempLowest) > 1: 
+        print("TODO")
+        candidates = map((lambda a: find_entering_for_li(D, a[1])), tempLowest)
+        print("candidates:",candidates)
+        winner = np.argmax(candidates)
+        print("winner:", winner)
+        return 0, 0
+
+    else:
+        leaving = np.argmin(row)
+        print("leaving:", leaving)
+        row = ratios[leaving]
+        k = find_entering_for_li(D, row)
+        return k[1], leaving 
+
+
+
+
+
+    # find largest coeff
+def find_entering_for_li(D, row, eps=0):
+    if all(x < -eps for x in D.C[0, 1:]):
+        return None, None
     indices_of_lowest_in_row = [] 
     lowest_in_row = np.inf
-    print(row)
+    print("bbb", row)
     for i in range(len(row)): 
         if row[i] <= lowest_in_row:
             indices_of_lowest_in_row.append(i) 
             lowest_in_row = row[i]
     coeffs = []
     for i in indices_of_lowest_in_row:
-        coeffs.append(D.C[0, i + 1])
-    print(np.argmax(coeffs), leaving)
-    np.argmax(coeffs), leaving
+        coeffs.append((i, D.C[0, i + 1]))
+    print(coeffs)
+    return coeffs[np.argmax(coeffs)], np.argmax(coeffs)
 
 # Implementing twophase Simplex using auxillary var.
 def two_phase_solve(c, A, b, dtype=Fraction, eps=0):
@@ -429,143 +468,121 @@ def two_phase_solve(c, A, b, dtype=Fraction, eps=0):
 
     return lp_solve(auxD)
 
+def bland(D, eps): 
+    k = find_entering(D, eps)
+    l = find_leaving(D, k, eps)
+    return k, l
+
+
 
 def lp_solve(D, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     while True:
         if not (np.all(D.C[1:, 0] >= -eps)) and np.all(D.C[0, 1:] < -eps):
             return LPResult.INFEASIBLE, D
-
-        k = find_entering(D, eps)
-
+        k, l = pivotrule(D)
         if k == None:
             return LPResult.OPTIMAL, D
-
-        l = find_leaving(D, k, eps)
-
         if l == None:
             return LPResult.UNBOUNDED, D
         D.pivot(k, l)
 
+def experiment():
+    m = 30
+    n = 30
+    times_frac = []
+    times_float = []
+    times_scipysim = []
+    times_scipyds = []
 
-def run_examples():
-    # Ex 1 with Fraction
-    """
-    c, A, b = example1()
-    D = Dictionary(c, A, b)
-    print("Example 1 with Fraction")
-    # print('Initial dictionary:')
-    # print(D)
-    # print('x1 is entering and x4 leaving:')
-    D.pivot(0, 0)
-    # print(D)
-    # print('x3 is entering and x6 leaving:')
-    D.pivot(2, 2)
-    # print(D)
-    # print()"""
-
-    # Testing Blands Rule
-
-    """ c,A,b = example1()
-    D=Dictionary(c,A,b)
-    print('Testing Blands Rule')
-    print('Initial dictionary:')
-    print(D)
-    k,l = bland(D,np.finfo(np.float64).eps)
-    print('Pivot :')
-    if k == None: 
-        print('None')
-    else: 
-        print(k+1)
-    print('and')
-    if l == None: 
-        print('None')
-    else: 
-        print(l+1)
-    D.pivot(k,l)
-    print(D) """
-
-    # Testing Largest Coefficient Rule
-    """ c,A,b = example1()
-    D=Dictionary(c,A,b)
-    print('Testing Coefficient Rule')
-    print('Initial dictionary:')
-    print(D)
-    k,l = largest_coefficient(D,np.finfo(np.float64).eps)
     
-    print('Pivot :')
-    if k == None: 
-        print('None')
-    else: 
-        print(k+1)
-    print('and')
-    if l == None: 
-        print('None')
-    else: 
-        print(l+1)
-    D.pivot(k,l)
-    print(D) """
+    while m > 1 and n > 1:
+        i = 15
+        while i > 1:
+            seed = 10_000_000_000 * i
+            c, A, b = random_lp(n, m, seed)
+            x = m+n
+            
+            D_frac = Dictionary(c, A, b, Fraction)
+            D_float = Dictionary(c, A, b, np.float64)
+        
+            start_time = time.perf_counter_ns()
+            lp_solve(D_frac)
+            end_time_fraction = time.perf_counter_ns() - start_time
 
-    # Ex 1 with np.float64
-    """
-    start_time = timeit.default_timer()
-    D = Dictionary(c, A, b, np.float64)
-    print("Example 1 with np.float64")
-    # print('Initial dictionary:')
-    # print(D)
-    # print('x1 is entering and x4 leaving:')
-    D.pivot(0, 0)
-    # print(D)
-    # print('x3 is entering and x6 leaving:')
-    # D.pivot(2,2)
-    # print(D)
-    # print()
-    end_time_float = timeit.default_timer() - start_time
-    """
+            times_frac.append((x,end_time_fraction))
+    
+            start_time = time.perf_counter_ns()
+            lp_solve(D_float)
+            end_time_float = time.perf_counter_ns() - start_time
+            
+            times_float.append((x,end_time_float))
+    
+            start_time = time.perf_counter_ns()
+            scipy.optimize.linprog(c, A_ub=A, b_ub=b, method="simplex")
+            end_time_scipysimplex = time.perf_counter_ns() - start_time
+            
+            times_scipysim.append((x,end_time_scipysimplex))
+            
+            start_time = time.perf_counter_ns()
+            scipy.optimize.linprog(c, A_ub=A, b_ub=b, method="highs-ds")
+            end_time_scipyhighds = time.perf_counter_ns() - start_time
+            
+            times_scipyds.append((x,end_time_scipyhighds))
+            i -=1   
+        
+        if (n-1)==m:
+            n -= 1
+        else:
+            m -=1
 
-    """ # Example 2
-    c,A,b = example2()
-    print('Example 2')
-    print('Auxillary dictionary')
-    D=Dictionary(None,A,b)
-    print(D)
-    print('x0 is entering and x4 leaving:')
-    D.pivot(2,1)
-    print(D)
-    print('x2 is entering and x3 leaving:')
-    D.pivot(1,0)
-    print(D)
-    print('x1 is entering and x0 leaving:')
-    D.pivot(0,1)
-    print(D)
-    print()  """
 
+    times_floats = [(elem1, log(elem2)) for elem1, elem2 in times_float]
+    times_fracs = [(elem1, log(elem2)) for elem1, elem2 in times_frac]
+    times_scipydss = [(elem1, log(elem2)) for elem1, elem2 in times_scipysim]
+    times_scipysims = [(elem1, log(elem2)) for elem1, elem2 in times_scipyds]
+
+    fig, ax = plt.subplots()
+    ax.scatter(*zip(*times_floats), label = "with floats", marker= 'o')
+    ax.scatter(*zip(*times_scipydss), label = "scipy-simplex", marker= '+')
+    ax.scatter(*zip(*times_scipysims), label = "scipy-high-ds", marker= '.')
+    ax.scatter(*zip(*times_fracs), label = "with fractions", marker='x')
+    ax.set_title("Performance of Simplex")
+    ax.set_ylabel('Time (nanoseconds)')
+    ax.set_xlabel('m + n') 
+    plt.legend()
+    plt.show()  
+    
+    
+def run_examples():
     # Solve Example 1 using lp_solve
-    """ c,A,b = example1()
+    c,A,b = example1()
     print('lp_solve Example 1:')
     D = Dictionary(c,A,b)
-    res,D,_ = lp_solve(D)
-    # print(res)
-    print(D)
-    print() """
+    res, D = two_phase_solve(c, A, b)
+    print(res)
+    # print(D)
+    print() 
+    
 
     # Solve Example 2 using lp_solve
-    """c, A, b = example2()
+    c, A, b = example2()
     print("lp_solve aux Example 2:")
     res, D = two_phase_solve(c, A, b)
     print(res)
     # print(D)
-    print()"""
+    print()
+    
     # Solve Exercise 2.5 using lp_solve
     c, A, b = exercise2_5()
     D = Dictionary(c,A,b)
     print("lp_solve aux Exercise 2.5:")
-    res, D = largest_increase(D, 0)
+    res, D = two_phase_solve(c, A, b)
     print(res)
-    #   print(D)
-    print()
+    #print(D)
+    print() 
 
-    """
-    # Solve Exercise 2.6 using lp_solve
+    
+    #Solve Exercise 2.6 using lp_solve
     c, A, b = exercise2_6()
     print("lp_solve Exercise 2.6:")
     res, D = two_phase_solve(c, A, b)
@@ -580,90 +597,8 @@ def run_examples():
     print(res)
     # print(D)
     print()
-
-    #Integer pivoting
-    c,A,b=example1()
-    D=Dictionary(c,A,b,int)
-    print('Example 1 with int')
-    print('Initial dictionary:')
-    print(D)
-    print('x1 is entering and x4 leaving:')
-    D.pivot(0,0)
-    print(D)
-    print('x3 is entering and x6 leaving:')
-    D.pivot(2,2)
-    print(D)
-    print() 
-
-      c,A,b = integer_pivoting_example()
-    D=Dictionary(c,A,b,int)
-    print('Integer pivoting example from lecture')
-    print('Initial dictionary:')
-    print(D)
-    print('x1 is entering and x3 leaving:')
-    D.pivot(0,0)
-    print(D)
-    print('x2 is entering and x4 leaving:')
-    D.pivot(1,1)
-    print(D)
-
     
-    c,A,b = cycleexample()
-    D=Dictionary(c,A,b)
-    print(D)
-    print('lp_solve Cycle example:')
-    res,D=lp_solve(c,A,b)
-    print(res)
-    print(D)
-    print()  """
-
-    """ c,A,b = exercise2_6()
-    print('lp_solve_aux Exercise 2.6:')
-    res,D=two_phase_solve(c,A,b, 0)
-    print(res)
-    print(D)
-    print() 
     
-    seed = 500000
-    n = 20
-    m = 20
-    c, A, b = random_lp(n, m, seed)
-    D = Dictionary(c, A, b, Fraction)
-    # print(D)
-    print("Random with Fraction")
-    start_time = timeit.default_timer()
-    res1, res2 = lp_solve(D)
-    end_time_fraction = timeit.default_timer() - start_time
-    print(res1)
-    # print(res2)
-    # print()
-
-    # Random 100x100 with np.float64
-    c, A, b = random_lp(n, m, seed)
-    print("Random with np.float64")
-    start_time = timeit.default_timer()
-    res1, res2 = lp_solve(D)
-    end_time_float = timeit.default_timer() - start_time
-    print(res1)
-    # print(res2)
-    # print()
-
-    # Random 100x100 with SciPy linprog
-    c, A, b = random_lp(n, m, seed)
-    D = Dictionary(c, A, b, np.float64)
-    print("Random SciPy linprog")
-    start_time = timeit.default_timer()
-    res = scipy.optimize.linprog(c, A_ub=A, b_ub=b, method="simplex")
-    end_time_scipy = timeit.default_timer() - start_time
-    print(res.message)
-    print()
-
-    print("Benchmarks:")
-    print(f"Time for Fraction - Random    : {round(end_time_fraction, 7)} seconds")
-    print(f"Time for np.float64 - Random  : {round(end_time_float, 7)} seconds")
-    print(f"Time for SciPy - Random       : {round(end_time_scipy, 7)} seconds")
-
-
-"""
 run_examples()
+
 
